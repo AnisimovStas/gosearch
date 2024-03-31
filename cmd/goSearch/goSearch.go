@@ -1,58 +1,61 @@
 package main
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
 	"goSearch/pkg/crawler"
 	"goSearch/pkg/crawler/spider"
+	"net/http"
 	"strings"
 )
 
 var urls = []string{"https://go.dev", "https://vuejs.org"}
+var documents = make([]crawler.Document, 0)
+
+const port = ":8080"
 
 func main() {
-	sf := flag.String("s", "", "word to search")
-	flag.Parse()
-
-	if *sf == "" {
-		fmt.Println("Для использования программы необходимо указать слово для поиска через флаг '-s' \nНапример: goSearch -s котики")
-		return
-	}
-	fmt.Printf("Ищу ссылки со словом: %s\n", *sf)
-
-	documents, err := scan(urls)
+	fmt.Printf("Начинаю сканирование документов %+v", urls)
+	err := scan(urls)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
+	fmt.Println("Сканирование завершено")
 
-	printResult(*sf, documents)
+	http.HandleFunc("/", findByWord)
+	fmt.Printf("Сервер запущен на порту%v\n", port)
+	http.ListenAndServe(port, nil)
+
 }
 
-func scan(urls []string) ([]crawler.Document, error) {
-	results := make([]crawler.Document, 0)
+func scan(urls []string) error {
+	//results := make([]crawler.Document, 0)
 	s := spider.New()
 
 	for _, u := range urls {
 
 		data, err := s.Scan(u, 2)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		results = append(results, data...)
+		documents = append(documents, data...)
 	}
-	return results, nil
+	return nil
 }
 
-func printResult(w string, r []crawler.Document) {
-	counter := 0
-	for _, d := range r {
-		if strings.Contains(strings.ToLower(d.URL), strings.ToLower(w)) || strings.Contains(strings.ToLower(d.Title), strings.ToLower(w)) {
-			fmt.Printf("%+v\n", d)
-			counter++
+func findByWord(w http.ResponseWriter, r *http.Request) {
+	search := r.URL.Path[1:]
+
+	result := make([]crawler.Document, 0)
+
+	for _, d := range documents {
+		if strings.Contains(strings.ToLower(d.URL), strings.ToLower(search)) || strings.Contains(strings.ToLower(d.Title), strings.ToLower(search)) {
+			result = append(result, d)
 		}
 	}
-	if counter == 0 {
-		fmt.Printf("Результатов для слова %v не найдено\n", w)
+	err := json.NewEncoder(w).Encode(result)
+	if err != nil {
+		return
 	}
-
 }
