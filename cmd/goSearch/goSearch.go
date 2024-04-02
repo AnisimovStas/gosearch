@@ -6,25 +6,30 @@ import (
 	"goSearch/pkg/crawler"
 	"goSearch/pkg/crawler/spider"
 	"goSearch/pkg/index"
+	"goSearch/pkg/storage"
 	"net/http"
 )
 
-// var urls = []string{"https://go.dev", "https://vuejs.org"}
-var urls = []string{"https://go.dev"}
+var urls = []string{"https://go.dev", "https://vuejs.org"}
 var documents = make([]crawler.Document, 0)
 var idx *index.Index = index.New()
 
 const port = ":8080"
 
 func main() {
-	fmt.Printf("Начинаю сканирование документов %+v", urls)
+	isCached := storage.CheckUrls(urls)
 
-	err := scan(urls)
-	if err != nil {
-		fmt.Println(err)
-		return
+	if isCached {
+		documents = storage.GetDocs()
+	} else {
+		err := scan(urls)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		storage.SaveDocs(documents)
+		storage.SaveUrls(urls)
 	}
-	fmt.Println("Сканирование завершено")
 
 	http.HandleFunc("/", handleFind)
 	fmt.Printf("Сервер запущен на порту%v\n", port)
@@ -33,6 +38,7 @@ func main() {
 }
 
 func scan(urls []string) error {
+	fmt.Printf("Начинаю сканирование документов %+v", urls)
 	s := spider.New()
 	id := 0 //счетчик документов
 	for _, u := range urls {
@@ -48,6 +54,7 @@ func scan(urls []string) error {
 			documents = append(documents, d)
 		}
 	}
+	fmt.Println("Сканирование завершено")
 	return nil
 }
 
