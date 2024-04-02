@@ -36,6 +36,7 @@ func SaveUrls(urls []string) {
 		fmt.Println(err)
 		return
 	}
+	defer f.Close()
 
 	for _, url := range urls {
 		f.WriteString(url + "\n")
@@ -50,6 +51,7 @@ func SaveDocs(docs []crawler.Document) {
 		fmt.Println(err)
 		return
 	}
+	defer f.Close()
 
 	for _, doc := range docs {
 		f.WriteString(doc.URL + "\n")
